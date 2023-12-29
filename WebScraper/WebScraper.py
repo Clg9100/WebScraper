@@ -1,17 +1,17 @@
 import time
-
+import csv
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-
 def main():
     valid = False
     while not valid:
         filter = input("Enter your clothes filter search (Male/Female/Unisex/NONE)"
-                       " or leave blank for no filter:  ")
+                       " or NONE for no filter:  ")
         print(filter.upper())
         if (filter.upper() == "MALE" or filter.upper() == "FEMALE"
                 or filter.upper() == "NONE") or filter.upper() == "UNISEX":
@@ -53,8 +53,8 @@ def main():
             print("Invalid entry, make sure you don't duplicate search terms\n"
                   "and make sure they're seperated by commas!")
             print("\n")
-
-    gatherAsos(filter,search_items)
+    createCSVHeader()  # Create csv file with just this header
+    gatherAsos(filter,search_items) #Get data from site to form csv file
 
 def gatherAero():
     options = webdriver.ChromeOptions()
@@ -119,7 +119,7 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 2)
 
-    searchesToMake = len(items)
+    searchesToMake = len(items) # Record searches to make given search terms
     ##Make a list of url's to be scraped depending on how many
     ##Search terms were recieved
     searchList = [default_url] * searchesToMake
@@ -130,6 +130,7 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
 
     for search in range(0,len(searchList)):
         driver.get(searchList[search])
+        print("Currently printing info for "+searchList[search])
 
         if filter == "MALE":
             try: #Gotta check to see if the item allows sorting by gender
@@ -143,11 +144,12 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
                     button.click()
                 else:
                     raise NoSuchElementException #Item doesn't have that filter
+
             except NoSuchElementException:
                 print("This item doesn't have that filter, using no filter")
             except TimeoutException: #No search results found for this item
                 print("This search produced no results")
-                break
+                continue
 
         elif filter == "FEMALE":
             try: #Gotta check to see if the item allows sorting by gender
@@ -164,7 +166,7 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
                 print("This item doesn't have that filter, using no filter")
             except TimeoutException: #No search results found for this item
                 print("This search produced no results")
-                break
+                continue
 
         elif filter == "UNISEX":
             try: #Gotta check to see if the item allows sorting by gender
@@ -181,37 +183,121 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
                 print("This item doesn't have that filter, using no filter")
             except TimeoutException: #No search results found for this item
                 print("This search produced no results")
-                break
+                continue
 
-        expand_count = 0
-        while expand_count <=5: #Could do this infinitely, but UP TO 500 items is a good sample size
+        expand_count = 0 #Amount of times to click show more on page
+        while expand_count <2: #Could do this infinitely, but UP TO 500 items is a good sample size
             try:
-                wait.until(EC.presence_of_element_located((By.CLASS_NAME,"loadButton_wWQ3F")))#Wait until load button located
                 button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
-                driver.execute_script("arguments[0].click();", button) #Click loadmore
-                expand_count +=1 #Increase page expanse by 1
+                driver.execute_script("arguments[0].click();", button)  # Click loadmore
+                wait.until(EC.presence_of_element_located((By.CLASS_NAME,"loadButton_wWQ3F")))#Wait until load button located
+                expand_count += 1  # Increase page expanse by 1
+
+                # """
+                # Holding this code because not sure if I still need it
+                # Was buggy such that we would start grabbing elements before the page source was loaded after clicking show more,
+                # Thusly leading to index out of bound errors on our data lists
+                # button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
+                # driver.execute_script("arguments[0].click();", button) #Click loadmore
+                # expand_count +=1 #Increase page expanse by 1
+                # driver.implicitly_wait(20) #Need to add wait, otherwise data lists won't fill right
+                # """
+
+            #Specifically for case that 'load more' can be clicke no more, or merely doesn't exist on the page
             except NoSuchElementException:
                 #Button doesn't exist (Exhausted or never existed)
+                print("We're here")
                 break
             except TimeoutException:
                 # Page can't expand that many times
                 break
+        driver.implicitly_wait(10)
 
-        ##This section prints the price of each entry on the page
+        #Instantiate the lists to hold product data
+        priceList = []
+        urlList = []
+        nameList = []
+
+        #This section prints the price of each entry on the page
+
+        ##Use this for current price, factoring in sales(RRP)
         the_prices = driver.find_elements(By.CLASS_NAME, "originalPrice_SOu7v")
-        print(len(the_prices))
+
+        ##Use this for strictly original price
+        ##the_prices = driver.find_elements(By.CLASS_NAME, "price_CMH3V")
+
+        #print(len(the_prices))
+
+        #For each price element, add its price to price list
         for price in the_prices:
-            print(price.get_attribute("innerText"))
+            #print(price.get_attribute("innerText"))
+            priceList.append(price.get_attribute("innerText"))
+
+        #Testing purpose prints
+        #print("PriceList size: ")
+        #print(len(priceList))
 
         # The following code section finds all the Product links for the current page (The URLS)
         the_links = driver.find_elements(By.CLASS_NAME, "productLink_KM4PI")
+        # For each href link, add its url to the list of urls for each product
         for link in the_links:
-            print(link.get_attribute("href"))
+            #print(link.get_attribute("href"))
+            urlList.append(link.get_attribute("href"))
+
+        # Testing purpose prints
+        #print("LinkList size: ")
+        #print(len(urlList))
 
         # This section of code prints ALL the product names on the CURRENT page
         product_name = driver.find_elements(By.CLASS_NAME, "productDescription_sryaw")
+
+        #For each product add its name to list of product names
         for product in product_name:
-            print(product.get_attribute("innerText"))
+            #print(product.get_attribute("innerText"))
+            nameList.append(product.get_attribute("innerText"))
+
+        # Testing purpose prints
+        #print("nameList size: ")
+        #print(len(nameList))
+
+        #Section for combining data for transfer to csv
+        data = []
+        for product in range(0,len(nameList)):
+            data.append([])
+
+        print(len(data))
+        for eachProduct in range(0,len(data)):
+            # Add search term used for this item lookup (Using list comprehension to get just the search term with split)
+            data[eachProduct].append(searchList[search].split(default_url)[-1])
+            data[eachProduct].append(nameList[eachProduct])#Add name of product
+            data[eachProduct].append(priceList[eachProduct]) #Add price of product
+            data[eachProduct].append(urlList[eachProduct]) # Add url of product
+            #print(data[eachProduct]) #to print data
+
+        createCSV(data) #Write to the csv file the list of data for csv file creation
+
+def createCSV(theData):
+
+    with open('fullData.csv', 'a',newline='') as file:
+        write = csv.writer(file)
+        write.writerows(theData)
+
+def createCSVHeader():
+
+    if os.path.exists("fullData.csv"):
+        os.remove("fullData.csv")
+        print("Old CSV file deleted")
+        print("Writing new csv file...")
+        fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
+        with open('fullData.csv', 'w',newline='') as file:  # 'w' mode is for writing to a file
+            write = csv.writer(file)
+            write.writerow(fields)
+    else:
+        print("Writing new csv file...")
+        fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
+        with open('fullData.csv', 'w') as file:  # 'w' mode is for writing to a file
+            write = csv.writer(file)
+            write.writerow(fields)
 
 main()
 

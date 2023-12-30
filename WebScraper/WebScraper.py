@@ -39,20 +39,25 @@ def main():
     while(inputting):
         item = input("Enter the items you want to search for as a comma seperated list -\n"
                      "(EX: Shirts, pants, hats, dresses: ")
+        print("\n")
         item = item.lower()
         terms = len(item.split(","))
-        commas = 0
+        onlyStrings = True
 
         for i in item.split(","):
+            if(i.strip(" ").isdigit()): #Check to make sure user has entered valid input
+                onlyStrings = False #Found an int, invalid input
+                break #No need to add search items, invalid input
             search_items.add(i)
 
-        if terms == len(search_items):
+        if terms == len(search_items) and onlyStrings == True:
             inputting = False
         else:
             search_items.clear() #Empty the set
             print("Invalid entry, make sure you don't duplicate search terms\n"
-                  "and make sure they're seperated by commas!")
+                  "and make sure they're separated by commas! (No numbers!)")
             print("\n")
+
     createCSVHeader()  # Create csv file with just this header
     gatherAsos(filter,search_items) #Get data from site to form csv file
 
@@ -60,7 +65,7 @@ def gatherAero():
     options = webdriver.ChromeOptions()
     options.add_experimental_option('detach', True)
     driver = webdriver.Chrome(options=options)
-    wait = WebDriverWait(driver, 10)
+    wait = WebDriverWait(driver, 5)
 
     driver.get("https://www.aeropostale.com/search/?q=shirt")
 
@@ -117,7 +122,7 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
     options = webdriver.ChromeOptions()
     options.add_experimental_option('detach', True)
     driver = webdriver.Chrome(options=options)
-    wait = WebDriverWait(driver, 2)
+    wait = WebDriverWait(driver, 10)
 
     searchesToMake = len(items) # Record searches to make given search terms
     ##Make a list of url's to be scraped depending on how many
@@ -275,6 +280,28 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
             #print(data[eachProduct]) #to print data
 
         createCSV(data) #Write to the csv file the list of data for csv file creation
+
+    itemBudgets = storeBudgets(searchList, default_url)
+    #print(itemBudgets) test to see if dict is created
+
+def storeBudgets(searchList, default_url):
+    itemBudgets = {}
+    for item in range(len(searchList)):
+        inputting = True #Toggle for valid input
+        while (inputting):
+            #Get the users budget for the current search term item
+            uiBudget = input("Enter your budget for search item - " + searchList[item].split(default_url)[-1] + ": ")
+            if(uiBudget.isdigit()):
+                uiBudget = int(uiBudget) # Cast it to an int, it's valid
+                if(uiBudget > 0):
+                    itemBudgets[searchList[item].split(default_url)[-1]] = uiBudget  # Set the users budget for the search term
+                    inputting = False  # Toggle for valid input
+                else:
+                    print("Make sure your budget is greater than 0 and is a number!")
+            else:
+                print("Make sure your budget is greater than 0 and is a number!")
+    return itemBudgets #Return dictionary of item budgets
+
 
 def createCSV(theData):
 

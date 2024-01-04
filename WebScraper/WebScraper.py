@@ -59,7 +59,12 @@ def main():
             print("\n")
 
     createCSVHeader()  # Create csv file with just this header
-    gatherAsos(filter,search_items) #Get data from site to form csv file
+    # Get data from site and create csv file from that data
+    # returns a dict of budgets to form budget csv
+    budgets = gatherAsos(filter,search_items)
+    createBudgetCSV(budgets) # Create the csv file for products that fit within budget
+    print("All items that fit your initial queries on your chosen filter can be found in the file: fullData.csv")
+    print("All items that are under your entered per item budget can be found in the file: budgetData.csv")
 
 def gatherAero():
     options = webdriver.ChromeOptions()
@@ -132,6 +137,7 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
     #Populate a list of urls to search given search terms
     for i in range(0,searchesToMake):
         searchList[i] += items.pop().strip(" ")
+
 
     for search in range(0,len(searchList)):
         driver.get(searchList[search])
@@ -247,7 +253,8 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
         #For each discount price element, add its price to discounted price list
         for price in all_prices:
             thePrice = price.get_attribute("innerText")
-            print("Inner text given = "+thePrice)
+            ##Testing purpose print
+            #print("Inner text given = "+thePrice)
             #Now we do validation on the string we got on a case by case scenario, three cases are:
             #It's a Recommended retail price item of the form RRP $xx.xx$xx.xx
             #Its an item not on sale of the form $xx.xx
@@ -337,8 +344,9 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
 
         #Section for cleaning data ahead of time -making sure discounted prices are reflected, and not their original price
 
-        print(len(data))
-        print("Discount size "+ str(len(discountPriceList)))
+        #Testing purpose prints
+        #print(len(data))
+        #print("Discount size "+ str(len(discountPriceList)))
         for eachProduct in range(0,len(data)):
             # Add search term used for this item lookup (Using list comprehension to get just the search term with split)
             data[eachProduct].append(searchList[search].split(default_url)[-1])
@@ -347,11 +355,12 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
             data[eachProduct].append(discountPriceList[eachProduct])# Add price of product (Latest way, actually gets discounts)
             data[eachProduct].append(urlList[eachProduct]) # Add url of product
             #print(data[eachProduct]) #to print data
-
         createCSV(data) #Write to the csv file the list of data for csv file creation
 
     itemBudgets = storeBudgets(searchList, default_url)
-    #print(itemBudgets) test to see if dict is created
+    #print(itemBudgets) #test to see if dict is created
+    return itemBudgets
+
 
 def storeBudgets(searchList, default_url):
     itemBudgets = {}
@@ -366,34 +375,89 @@ def storeBudgets(searchList, default_url):
                     itemBudgets[searchList[item].split(default_url)[-1]] = uiBudget  # Set the users budget for the search term
                     inputting = False  # Toggle for valid input
                 else:
-                    print("Make sure your budget is greater than 0 and is a number!")
+                    print("Make sure your budget is greater than 0 and is a number! (No decimals, round up to nearest dollar)")
             else:
-                print("Make sure your budget is greater than 0 and is a number!")
+                print("Make sure your budget is greater than 0 and is a number!(No Decimals, round up to nearest dollar)")
     return itemBudgets #Return dictionary of item budgets
 
 
 def createCSV(theData):
-
     with open('fullData.csv', 'a',newline='') as file:
         write = csv.writer(file)
         write.writerows(theData)
+        file.close() #Close resource
+
+
+def createBudgetCSV(itemBudgets):
+    #budgetData = []
+    createBudgetCSVHeader()  # Create csv file for budgeted items with just the header
+    #Reading full data, appending to bugetData (Because it already has the header, append to it)
+    with open('fullData.csv', mode='r') as infile, open ('budgetData.csv', mode='a', newline='') as outfile:
+        reader = csv.reader(infile)
+        writer = csv.writer(outfile)
+        next(reader, None)  # skip the headers
+        for lines in reader:
+            #Testing purpose print
+            #print(lines)
+            #If the price of the search term item being looked at is LESS than the budget,
+            # it's good to add it do our budgeted items list of data
+            #Otherwise don't add it, it goes over user's budget on its own
+            price = lines[2]
+            # Testing purpose prints, a bit important - don't want to remove them just yet.
+            #print("Search item being checked: "+lines[0])
+            # print("Price of said item: "+str(price[1:]))
+            # print("Budget being checked: "+str(float(itemBudgets.get(lines[0]))))
+
+            if(float(price[1:]) < float(itemBudgets.get(lines[0]))):
+                writer.writerow(lines)
+                #Testing purpose print to make sure we're getting correct data
+                #budgetData.append(lines)
+
+    #Testing purpose print
+    #for data in range(len(budgetData)):
+        #print(budgetData[data])
+        infile.close() #Close resource
+        outfile.close() #Close resource
 
 def createCSVHeader():
 
     if os.path.exists("fullData.csv"):
         os.remove("fullData.csv")
         print("Old CSV file deleted")
-        print("Writing new csv file...")
+        print("Writing new csv file: fullData.csv")
         fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
         with open('fullData.csv', 'w',newline='') as file:  # 'w' mode is for writing to a file
             write = csv.writer(file)
             write.writerow(fields)
+            file.close()#Close resource
     else:
-        print("Writing new csv file...")
+        print("Writing new csv file: fullData.csv")
         fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
         with open('fullData.csv', 'w') as file:  # 'w' mode is for writing to a file
             write = csv.writer(file)
             write.writerow(fields)
+            file.close()#Close resource
+
+
+def createBudgetCSVHeader():
+
+    if os.path.exists("budgetData.csv"):
+        os.remove("budgetData.csv")
+        print("Old CSV file deleted")
+        print("Writing new csv file: budgetData.csv")
+        fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
+        with open('budgetData.csv', 'w',newline='') as outfile:  # 'w' mode is for writing to a file
+            write = csv.writer(outfile)
+            write.writerow(fields)
+            outfile.close()#Close resource
+    else:
+        print("Writing new csv file: budgetData.csv")
+        fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
+        with open('budgetData.csv', 'w') as outfile:  # 'w' mode is for writing to a file
+            write = csv.writer(outfile)
+            write.writerow(fields)
+            outfile.close()#Close resource
+
 
 main()
 

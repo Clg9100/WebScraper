@@ -7,8 +7,32 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+
+"""
+Author: Chris Grate @ Clg9100
+Webscraper.py
+Program to (in its current state) pull data from the Asos  Fashion Company website
+and under the guide of user inputted filters and budgeting options - output csv files of both
+all items that fall under the search query filters as well as all items of each query that fulfill
+the under budget requirement of the user.
+
+Maintaining this program SHOULD be relatively simple, most issues that would arise would form from either
+the website implementing cloudflare protections OR changes in the structure of the site due to various
+Xpath variables used to access certain elements, HOWEVER, these are relatively easy to troubleshoot, and shouldn't
+pose much trouble in the future as long as the above is readily known for maintaining this program.
+
+Future goals: I kind of want to maybe get a UI going for this - think that would be cool, probably annoying but
+Would definitely be cool to have click functionality and maybe even some kind of display that's formed from the
+CSV file of budget items so the user can SEE what the items look like, rather than having to click the links themselves.
+
+Maybe even extend this to use a database such that the data used for the csv files are just stored in a database of items
+sold, updating as need be - would be cool extension of SQL, Database query knowledge in general to look into.
+
+Would potentially like a feature that find all possible combinations of pants, shirts, hats etc a user could buy given a specification
+from the user how many of each item they're looking to buy within their budget bracket, or a TOTAL budget rather.
+"""
 def main():
-    valid = False
+    valid = False  # Flag to check if user input is valid
     while not valid:
         filter = input("Enter your clothes filter search (Male/Female/Unisex/NONE)"
                        " or NONE for no filter:  ")
@@ -28,10 +52,10 @@ def main():
         else:
             print("Invalid filter try again")
 
-    filter=filter.upper() #Normalize user input
+    filter = filter.upper() #Normalize user input
 
-    search_items = set()
-    inputting = True
+    search_items = set() #Set of the items to be searched for (Opted for set in case user enters same item twice)
+    inputting = True #Flag to check if user input is valid
 
     ##One bug for input in this section that's known is
     ##If user enters search terms such as "Shirt shirt shirt pants
@@ -42,7 +66,7 @@ def main():
         print("\n")
         item = item.lower()
         terms = len(item.split(","))
-        onlyStrings = True
+        onlyStrings = True #Flag to make sure the user has ONLY entered text, not numbers in the input
 
         for i in item.split(","):
             if(i.strip(" ").isdigit()): #Check to make sure user has entered valid input
@@ -50,6 +74,8 @@ def main():
                 break #No need to add search items, invalid input
             search_items.add(i)
 
+        #If the amount of items to search for is equal to the number entered, and they only consist of words (no numbers)
+        #Input is valid, pass them through
         if terms == len(search_items) and onlyStrings == True:
             inputting = False
         else:
@@ -66,6 +92,21 @@ def main():
     print("All items that fit your initial queries on your chosen filter can be found in the file: fullData.csv")
     print("All items that are under your entered per item budget can be found in the file: budgetData.csv")
 
+
+"""
+Function: gatherAero
+Args: None
+
+Deprecated function to be used for scraping the Aeropostale website, keeping in case
+I find a way to make this program extensible to this site in general, issues arose when
+interacting with a web element like the "Load More" button which triggered cloud flare protection from the
+site which ultimately breaks the programs intention.
+
+It COULD be used for grabbing the first ~ 32 items from the search terms in the same way, but with such a low data set
+It's not really worth using this function - STILL, I think it's still relevant to keep as the structure for scraping most
+any website is relatively similar in setup. If anything this serves as a bit of a skeleton, albeit the organs will always
+differ
+"""
 def gatherAero():
     options = webdriver.ChromeOptions()
     options.add_experimental_option('detach', True)
@@ -118,7 +159,18 @@ def gatherAero():
 
     driver.close()
 
-
+"""
+Function: gatherAsos
+Args: filter(String), items(SET)
+Usage: filter - the user supplied filter for scraping the items from the website (Male, female, unisex, NONE)
+       items - the SET of items to be searched for supplied by the user (Ex: Hats, shirts, pants, suits)
+       
+The big workhorse the main focus of this function is to boot up the webdriver for scraping the ASOS website,
+with adherence to the search items supplied by the user and the filter they've set (or have not set, for general searches)
+Forms a list of data from the current page being scraped - (Search term used to find product, product name, product price, product url link)
+This data is then fed into a created csv file which will be used to filter items from the full list of items down to a list of items for 
+each search term (Ex: shirts, hats, pants, etc) that fit under the budget supplied for the user for each item)       
+"""
 def gatherAsos(filter,items):##Seemingly a GOOD website thus far
 
     # driver.get("https://www.asos.com/us/search/?q=shirt")
@@ -138,7 +190,7 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
     for i in range(0,searchesToMake):
         searchList[i] += items.pop().strip(" ")
 
-
+    #For each search term, pull the page of a search for that term, click the correct filter based on user supplied filter
     for search in range(0,len(searchList)):
         driver.get(searchList[search])
         print("Currently printing info for "+searchList[search])
@@ -196,7 +248,10 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
                 print("This search produced no results")
                 continue
 
-        expand_count = 0 #Amount of times to click show more on page
+        expand_count = 0 #Counter for Amount of times to click show more on page (Could set to max, ~200 items is a good sample)
+                        # As a future note, may just be worth it to allow user to enter a int that effectively decides how many results
+                        #Theyll get back eg - I want 200 results roughly translates to an expand count of 2 as the site shows ~ 72 items
+                        #Per press of the button
         while expand_count <2: #Could do this infinitely, but UP TO 500 items is a good sample size( < 2 = 216 results or less)
             try:
                 button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
@@ -214,9 +269,9 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
                 # driver.implicitly_wait(20) #Need to add wait, otherwise data lists won't fill right
                 # """
 
-            #Specifically for case that 'load more' can be clicke no more, or merely doesn't exist on the page
+            #Specifically for case that 'load more' can be clicked no more, or merely doesn't exist on the page
             except NoSuchElementException:
-                #Button doesn't exist (Exhausted or never existed)
+                #Button doesn't exist (Exhausted (No more items) or never existed)
                 break
             except TimeoutException:
                 # Page can't expand that many times
@@ -253,7 +308,7 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
         #For each discount price element, add its price to discounted price list
         for price in all_prices:
             thePrice = price.get_attribute("innerText")
-            ##Testing purpose print
+            ##Testing purpose prints
             #print("Inner text given = "+thePrice)
             #Now we do validation on the string we got on a case by case scenario, three cases are:
             #It's a Recommended retail price item of the form RRP $xx.xx$xx.xx
@@ -338,11 +393,12 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
         # print(len(nameList))
 
         #Section for combining data for transfer to csv
+        #Basically creating a list of lists, a list of products and all their data
         data = []
         for product in range(0,len(nameList)):
             data.append([])
 
-        #Section for cleaning data ahead of time -making sure discounted prices are reflected, and not their original price
+        #Section for creating the data entry for each product (Search term, Product name, product price, productURL)
 
         #Testing purpose prints
         #print(len(data))
@@ -357,19 +413,36 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
             #print(data[eachProduct]) #to print data
         createCSV(data) #Write to the csv file the list of data for csv file creation
 
+    #Determine the budgets the user wants for each search term item
     itemBudgets = storeBudgets(searchList, default_url)
     #print(itemBudgets) #test to see if dict is created
     return itemBudgets
 
 
+
+"""
+Function: storeBudgets
+Args: searchList(List of strings), default_url(String)
+Usage: searchList - a list of the search terms
+       default_url - the defacto default url used for each search: https://www.aeropostale.com/search/?q=
+       
+Function is used to allow the user to enter what budgets they want for each search item they've entered
+
+Ex(I don't want shirts priced more than $50 - budget for shirts user enters if 50, pants 30, hats 20)
+
+returns: A dictionary of search item budgets (Per above example {'shirts' : 50, 'pants': 30, 'hats': 20 })
+
+Gripe: Might want to find out how to have this validate for both whole numbers and floats, currently just works for full numbers
+"""
 def storeBudgets(searchList, default_url):
+    #Dictionary for item to the budget associated with it
     itemBudgets = {}
     for item in range(len(searchList)):
         inputting = True #Toggle for valid input
         while (inputting):
             #Get the users budget for the current search term item
             uiBudget = input("Enter your budget for search item - " + searchList[item].split(default_url)[-1] + ": ")
-            if(uiBudget.isdigit()):
+            if(uiBudget.isdigit()): #Make sure the user is actually entering numbers
                 uiBudget = int(uiBudget) # Cast it to an int, it's valid
                 if(uiBudget > 0):
                     itemBudgets[searchList[item].split(default_url)[-1]] = uiBudget  # Set the users budget for the search term
@@ -381,6 +454,20 @@ def storeBudgets(searchList, default_url):
     return itemBudgets #Return dictionary of item budgets
 
 
+"""
+Function: createCsv
+Args: theData(list of lists )
+Usage theData - the list of products
+
+Function is used to write to a csv file named 'fullData.csv' the data scraped from all the user search queries. IF
+information was found for the query
+
+Gripes: Might want to find a way to allow user to specify what they want the name of their csv file to be, should be easy enough
+The way it is now is merely so it's easy to delete the file if it already exists on subsequent runs as I didn't want to bloat
+User directory with csv files (Although, this could just the same be done with them having the ability to name it themselves,
+them being able to name it themselves actually further allows for flexibility to have multiple data points if for example they
+run it on various different days - while still not bloating if they opt to use a filename they've already used before)
+"""
 def createCSV(theData):
     with open('fullData.csv', 'a',newline='') as file:
         write = csv.writer(file)
@@ -388,6 +475,17 @@ def createCSV(theData):
         file.close() #Close resource
 
 
+
+"""
+Function: createBudgetCSV
+Args: itemBudgets(dictionary of String to int mapping)
+Usage itemBudgets - dictionary of budgets imposed on the search items both supplied by the user.
+
+Function is used to write to a csv file named 'budgetData.csv' which will only contain items checked against the full data list
+that fall within (rather under) the budget supplied by the user for each individual item
+
+Gripes: Similar gripes in terms of allowing user to name the budget csv file.
+"""
 def createBudgetCSV(itemBudgets):
     #budgetData = []
     createBudgetCSVHeader()  # Create csv file for budgeted items with just the header
@@ -399,15 +497,16 @@ def createBudgetCSV(itemBudgets):
         for lines in reader:
             #Testing purpose print
             #print(lines)
-            #If the price of the search term item being looked at is LESS than the budget,
-            # it's good to add it do our budgeted items list of data
-            #Otherwise don't add it, it goes over user's budget on its own
+
             price = lines[2]
             # Testing purpose prints, a bit important - don't want to remove them just yet.
-            #print("Search item being checked: "+lines[0])
+            # print("Search item being checked: "+lines[0])
             # print("Price of said item: "+str(price[1:]))
             # print("Budget being checked: "+str(float(itemBudgets.get(lines[0]))))
 
+            # If the price of the search term item being looked at is LESS than the budget,
+            # it's good to add it do our budgeted items list of data
+            # Otherwise don't add it, it goes over user's budget on its own
             if(float(price[1:]) < float(itemBudgets.get(lines[0]))):
                 writer.writerow(lines)
                 #Testing purpose print to make sure we're getting correct data
@@ -419,6 +518,13 @@ def createBudgetCSV(itemBudgets):
         infile.close() #Close resource
         outfile.close() #Close resource
 
+
+"""
+Function: createCSVHeader
+
+Function is used to create the initial fullData.csv file with the header needed for column distinction
+Will either replace the file if one of the same name is found, or make a new one for the first time
+"""
 def createCSVHeader():
 
     if os.path.exists("fullData.csv"):
@@ -439,6 +545,13 @@ def createCSVHeader():
             file.close()#Close resource
 
 
+
+"""
+Function: createBudgetCSVHeader
+
+Function is used to create the initial budgetData.csv file with the header needed for column distinction
+Will either replace the file if one of the same name is found, or make a new one for the first time
+"""
 def createBudgetCSVHeader():
 
     if os.path.exists("budgetData.csv"):
@@ -460,10 +573,3 @@ def createBudgetCSVHeader():
 
 
 main()
-
-
-
-
-
-
-

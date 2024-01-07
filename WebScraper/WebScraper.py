@@ -61,9 +61,8 @@ def main():
     ##If user enters search terms such as "Shirt shirt shirt pants
     #Without commas this will count as one search term
     while(inputting):
-        item = input("Enter the items you want to search for as a comma seperated list -\n"
+        item = input("Enter the items you want to search for as a comma seperated list -"
                      "(EX: Shirts, pants, hats, dresses: ")
-        print("\n")
         item = item.lower()
         terms = len(item.split(","))
         onlyStrings = True #Flag to make sure the user has ONLY entered text, not numbers in the input
@@ -84,11 +83,28 @@ def main():
                   "and make sure they're separated by commas! (No numbers!)")
             print("\n")
 
+    inputting = True  #Flag to check if user input is valid
+    imageFlag = False  # Flag for if user wants images of the products
+    while (inputting):
+        imageOptional = input("Would you like images of the products saved to a folder? Enter Y/y for yes, N/n for no: ")
+        imageOptional = imageOptional.lower()
+        if((len(imageOptional) == 1) and imageOptional.isalpha()):
+            if(imageOptional == "y"):
+                imageFlag = True #User wants product images
+                inputting = False  # Input is valid, only 1 input AND it's an acceptable letter
+            elif(imageOptional == "n"):
+                imageFlag = False #User doesn't want product images
+                inputting = False  # Input is valid, only 1 input AND it's an acceptable letter
+            else: #Was a letter other than y or n
+                print("Invalid input, try again please")
+        else:
+            print("Invalid input, try again please")
+
     createCSVHeader()  # Create csv file with just this header
     # Get data from site and create csv file from that data
     # returns a dict of budgets to form budget csv
-    budgets = gatherAsos(filter,search_items)
-    createBudgetCSV(budgets) # Create the csv file for products that fit within budget
+    budgets = gatherAsos(filter, search_items, imageFlag)
+    createBudgetCSV(budgets)  # Create the csv file for products that fit within budget
     print("All items that fit your initial queries on your chosen filter can be found in the file: fullData.csv")
     print("All items that are under your entered per item budget can be found in the file: budgetData.csv")
 
@@ -117,11 +133,11 @@ def gatherAero():
 
     driver.implicitly_wait(60)
 
-    driver.switch_to.frame("attentive_creative") #Switch frame to close ad
+    driver.switch_to.frame("attentive_creative")  #Switch frame to close ad
     driver.implicitly_wait(5)
-    button = driver.find_element(By.ID,"closeIconContainer") #Find ad
-    button.click() # Close ad
-    driver.switch_to.default_content() #Switch back to original frame
+    button = driver.find_element(By.ID, "closeIconContainer")  #Find ad
+    button.click()  # Close ad
+    driver.switch_to.default_content()  #Switch back to original frame
 
     #This section is for clicking load more until no longer possible
 
@@ -133,9 +149,9 @@ def gatherAero():
 
     while True:
         try:
-            #wait.until(EC.element_to_be_clickable((By.XPATH,"//*[@id='primary']/div[1]/div[2]/div/div")))
+            #  wait.until(EC.element_to_be_clickable((By.XPATH,"//*[@id='primary']/div[1]/div[2]/div/div")))
             button = driver.find_element(By.XPATH,"//*[@id='primary']/div[1]/div[2]/div/div")
-            driver.execute_script("arguments[0].click();",button)
+            driver.execute_script("arguments[0].click();", button)
             time.sleep(10)
         except Exception as e:
             print(e)
@@ -161,9 +177,10 @@ def gatherAero():
 
 """
 Function: gatherAsos
-Args: filter(String), items(SET)
+Args: filter(String), items(SET), imageFlag(Boolean)
 Usage: filter - the user supplied filter for scraping the items from the website (Male, female, unisex, NONE)
        items - the SET of items to be searched for supplied by the user (Ex: Hats, shirts, pants, suits)
+       imageFlag - flag imposed from user input determining if we scrape images or not
        
 The big workhorse the main focus of this function is to boot up the webdriver for scraping the ASOS website,
 with adherence to the search items supplied by the user and the filter they've set (or have not set, for general searches)
@@ -171,13 +188,13 @@ Forms a list of data from the current page being scraped - (Search term used to 
 This data is then fed into a created csv file which will be used to filter items from the full list of items down to a list of items for 
 each search term (Ex: shirts, hats, pants, etc) that fit under the budget supplied for the user for each item)       
 """
-def gatherAsos(filter,items):##Seemingly a GOOD website thus far
+def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
 
     # driver.get("https://www.asos.com/us/search/?q=shirt")
     # driver.get("https://www.asos.com/us/search/?q=gloves")
     default_url = "https://www.asos.com/us/search/?q="
     options = webdriver.ChromeOptions()
-    options.add_experimental_option('detach', True)
+    options.add_experimental_option('detach', True) #This keeps driver open after running - good for testing
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(driver, 10)
 
@@ -252,11 +269,14 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
                         # As a future note, may just be worth it to allow user to enter a int that effectively decides how many results
                         #Theyll get back eg - I want 200 results roughly translates to an expand count of 2 as the site shows ~ 72 items
                         #Per press of the button
+
+
         while expand_count <2: #Could do this infinitely, but UP TO 500 items is a good sample size( < 2 = 216 results or less)
             try:
                 button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
                 driver.execute_script("arguments[0].click();", button)  # Click loadmore
-                wait.until(EC.presence_of_element_located((By.CLASS_NAME,"loadButton_wWQ3F")))#Wait until load button located
+                wait.until(EC.presence_of_element_located((By.CLASS_NAME, "loadButton_wWQ3F")))  # Wait until load button located
+                #wait.until(EC.presence_of_element_located((By.CLASS_NAME,"loadButton_wWQ3F")))#Wait until load button located
                 expand_count += 1  # Increase page expanse by 1
 
                 # """
@@ -291,6 +311,7 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
         driver.implicitly_wait(10)
 
         #BREAKTHROUGH - THIS GETS ALL PRICES ON THE PAGE, JUST HAVE TO CLEAN THE TEXT GIVEN
+        #Might even be able to use the xpath contains format to distinguish sale classes from regular classes
         all_prices = driver.find_elements(By.XPATH, "//p[contains(@aria-label, 'price') or contains(@aria-label,'Price')]")  # Discounted prices
 
         ##Use this for strictly original price
@@ -310,15 +331,16 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
             thePrice = price.get_attribute("innerText")
             ##Testing purpose prints
             #print("Inner text given = "+thePrice)
-            #Now we do validation on the string we got on a case by case scenario, three cases are:
-            #It's a Recommended retail price item of the form RRP $xx.xx$xx.xx
-            #Its an item not on sale of the form $xx.xx
-            #It's an item on sale, but not recommended retail price discounted of the form $xx.xx$xx.xx
+
+            #  Now we do validation on the string we got on a case by case scenario, three cases are:
+            #  It's a Recommended retail price item of the form RRP $xx.xx$xx.xx
+            #  Its an item not on sale of the form $xx.xx
+            #  It's an item on sale, but not recommended retail price discounted of the form $xx.xx$xx.xx
 
             if(thePrice[0] == "$"):
-                cashCount = 0 #How many $ symbols
-                iter = 0 #For indexing the string
-                #Count how many cash symbols to determine if it's a $xx.xx form price, or a $xx.xx$xx.xx form price
+                cashCount = 0 #  How many $ symbols
+                iter = 0 #  For indexing the string
+                #  Count how many cash symbols to determine if it's a $xx.xx form price, or a $xx.xx$xx.xx form price
                 for character in thePrice:
                     if(character == "$"):
                         cashCount+=1
@@ -391,6 +413,38 @@ def gatherAsos(filter,items):##Seemingly a GOOD website thus far
         # Testing purpose prints
         # print("nameList size: ")
         # print(len(nameList))
+        """
+        if(imageFlag):  # User wants product images, setup list
+            imgsSrc = []
+            containers = driver.find_elements(By.CLASS_NAME, "productMediaContainer_kmkXR")
+
+
+            SCROLL_PAUSE_TIME = 0.5
+            i = 0
+            last_height = driver.execute_script("return document.body.scrollHeight")
+            while True:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(SCROLL_PAUSE_TIME)
+                new_height = driver.execute_script("return document.body.scrollHeight")
+                if new_height == last_height:
+                    break
+                last_height = new_height
+                i += 1
+                if i == 5:
+                    break
+
+            driver.implicitly_wait(10)
+
+            #print(len(containers))
+            for container in containers:
+                image = container.find_element(By.TAG_NAME, 'img')
+                print(image.get_attribute('src'))
+                imgsSrc.append(image.get_attribute('src'))
+
+            for image in imgsSrc:
+                print(image)
+                
+        """
 
         #Section for combining data for transfer to csv
         #Basically creating a list of lists, a list of products and all their data

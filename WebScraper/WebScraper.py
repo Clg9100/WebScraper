@@ -275,7 +275,7 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
             try:
                 wait.until(EC.element_to_be_clickable((By.CLASS_NAME,"loadButton_wWQ3F"))) #Wait for button to be interactable
                 button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
-                time.sleep(3) #Wait a bit for elements to load
+                time.sleep(5) #Wait a bit for elements to load
                 driver.execute_script("arguments[0].click();", button)  # Click loadmore button
                 #wait.until(EC.presence_of_element_located((By.CLASS_NAME, "loadButton_wWQ3F")))  # Wait until load button located
                 expand_count += 1  # Increase page expanse by 1

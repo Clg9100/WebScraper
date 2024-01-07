@@ -273,11 +273,13 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
 
         while expand_count <2: #Could do this infinitely, but UP TO 500 items is a good sample size( < 2 = 216 results or less)
             try:
+                wait.until(EC.element_to_be_clickable((By.CLASS_NAME,"loadButton_wWQ3F"))) #Wait for button to be interactable
                 button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
-                driver.execute_script("arguments[0].click();", button)  # Click loadmore
-                wait.until(EC.presence_of_element_located((By.CLASS_NAME, "loadButton_wWQ3F")))  # Wait until load button located
-                #wait.until(EC.presence_of_element_located((By.CLASS_NAME,"loadButton_wWQ3F")))#Wait until load button located
+                time.sleep(3) #Wait a bit for elements to load
+                driver.execute_script("arguments[0].click();", button)  # Click loadmore button
+                #wait.until(EC.presence_of_element_located((By.CLASS_NAME, "loadButton_wWQ3F")))  # Wait until load button located
                 expand_count += 1  # Increase page expanse by 1
+
 
                 # """
                 # Holding this code because not sure if I still need it
@@ -296,7 +298,7 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
             except TimeoutException:
                 # Page can't expand that many times
                 break
-        driver.implicitly_wait(10)
+        time.sleep(2) #Wait a bit for elements to load
 
         #Instantiate the lists to hold product data
         discountPriceList = [] #Contains ALL prices (Discounted and otherwise)
@@ -327,6 +329,7 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
 
         #print("All prices length: "+str(len(all_prices)))
         #For each discount price element, add its price to discounted price list
+        #print("All Prices size: "+str(len(all_prices)))
         for price in all_prices:
             thePrice = price.get_attribute("innerText")
             ##Testing purpose prints
@@ -456,7 +459,9 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
 
         #Testing purpose prints
         #print(len(data))
-        #print("Discount size "+ str(len(discountPriceList)))
+        #print("Product name list size: "+ str(len(nameList)))
+        #print("Discount prices list  size "+ str(len(discountPriceList)))
+        #print("Url list size: "+str(len(urlList)))
         for eachProduct in range(0,len(data)):
             # Add search term used for this item lookup (Using list comprehension to get just the search term with split)
             data[eachProduct].append(searchList[search].split(default_url)[-1])

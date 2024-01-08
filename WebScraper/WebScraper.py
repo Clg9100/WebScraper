@@ -196,6 +196,7 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
     options = webdriver.ChromeOptions()
     options.add_experimental_option('detach', True) #This keeps driver open after running - good for testing
     driver = webdriver.Chrome(options=options)
+    driver.maximize_window()  # Gotta maximize window (Apparently page size could chang what URL's are pulled, so we're normalizing here)
     wait = WebDriverWait(driver, 10)
 
     searchesToMake = len(items) # Record searches to make given search terms
@@ -206,11 +207,12 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
     #Populate a list of urls to search given search terms
     for i in range(0,searchesToMake):
         searchList[i] += items.pop().strip(" ")
+        print("SearchList item: " + searchList[i])
 
     #For each search term, pull the page of a search for that term, click the correct filter based on user supplied filter
     for search in range(0,len(searchList)):
         driver.get(searchList[search])
-        print("Currently printing info for "+searchList[search])
+        print("Currently printing info for "+searchList[search].replace(" ", "%20")) #Normalize inputs with spaces
 
         if filter == "MALE":
             try: #Gotta check to see if the item allows sorting by gender
@@ -277,19 +279,7 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
                 button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
                 time.sleep(5) #Wait a bit for elements to load
                 driver.execute_script("arguments[0].click();", button)  # Click loadmore button
-                #wait.until(EC.presence_of_element_located((By.CLASS_NAME, "loadButton_wWQ3F")))  # Wait until load button located
                 expand_count += 1  # Increase page expanse by 1
-
-
-                # """
-                # Holding this code because not sure if I still need it
-                # Was buggy such that we would start grabbing elements before the page source was loaded after clicking show more,
-                # Thusly leading to index out of bound errors on our data lists
-                # button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
-                # driver.execute_script("arguments[0].click();", button) #Click loadmore
-                # expand_count +=1 #Increase page expanse by 1
-                # driver.implicitly_wait(20) #Need to add wait, otherwise data lists won't fill right
-                # """
 
             #Specifically for case that 'load more' can be clicked no more, or merely doesn't exist on the page
             except NoSuchElementException:
@@ -310,10 +300,11 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
 
         #Use this for current price, factoring in sales(RRP)
         the_prices = driver.find_elements(By.CLASS_NAME, "originalPrice_SOu7v")#Prices before discount (Baseline prices)
-        driver.implicitly_wait(10)
+        #driver.implicitly_wait(10)
 
         #BREAKTHROUGH - THIS GETS ALL PRICES ON THE PAGE, JUST HAVE TO CLEAN THE TEXT GIVEN
         #Might even be able to use the xpath contains format to distinguish sale classes from regular classes
+        #This is prone to breaking if they change the @aria-label font
         all_prices = driver.find_elements(By.XPATH, "//p[contains(@aria-label, 'price') or contains(@aria-label,'Price')]")  # Discounted prices
 
         ##Use this for strictly original price
@@ -336,32 +327,47 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
             #print("Inner text given = "+thePrice)
 
             #  Now we do validation on the string we got on a case by case scenario, three cases are:
-            #  It's a Recommended retail price item of the form RRP $xx.xx$xx.xx
+            #  It's a Recommended retail price item of the form RRP $xx.xx$xx.xx(-%xx)
             #  Its an item not on sale of the form $xx.xx
-            #  It's an item on sale, but not recommended retail price discounted of the form $xx.xx$xx.xx
+            #  It's an item on sale, but not recommended retail price discounted of the form $xx.xx$xx.xx(-%xx)
 
             if(thePrice[0] == "$"):
+                #print("The price: Normal: "+thePrice)
                 cashCount = 0 #  How many $ symbols
                 iter = 0 #  For indexing the string
-                #  Count how many cash symbols to determine if it's a $xx.xx form price, or a $xx.xx$xx.xx form price
+                #  Count how many cash symbols to determine if it's a $xx.xx form price, or a $xx.xx$xx.xx(-xx%) form price
                 for character in thePrice:
                     if(character == "$"):
                         cashCount+=1
                     # Is a discounted item, just have to make sure we take the discounted price now with slicing
-                    # Is of the format: $xx.xx$xx.xx
+                    # Is of the format: $xx.xx$xx.xx(-xx%)
                     if(cashCount == 2):
-                        discountPriceList.append(thePrice[iter:])
+                        toClean = thePrice[iter:] #Gotta clean input a bit - has discount percentage listed
+                        count = iter #For grabbing characters until we see discount percentage listing start
+                        discount = ""
+
+                        #For each character in the input to clean, count them until we see the start of
+                        #the discount percentage listing (If applicable)
+                        for character in toClean:
+                            if(character != '('):
+                                count+=1
+                            else:
+                                discount = thePrice[count:] #Currently don't do anything with this but could store it
+                                #print("Discount percent is : " +discount)
+                                break
+                        discountPriceList.append(thePrice[iter:count])
                         break #We can move on to next one
                     iter += 1
                     #print("Iterator is: " +str(iter))
 
-                ## If we made it here, it must be of the format: $xx.xx, add it to price list
+                ## If we made it here, it must be of the format: $xx.xx, add it to price list no cleaning needed
                 if(cashCount < 2):
                     discountPriceList.append(thePrice)
 
             # There exists a special case discovered on a search of unisex pants
             # Apparently, sometimes prices come in the form: From$xx.xx, this is what thePrice[0] == F seeks to cover
             elif (thePrice[0] == "F"):
+                #print("The price: FROM : "+thePrice)
                 cashCount = 0  # How many $ symbols
                 iter = 0  # For indexing the string
                 # Count how many cash symbols to determine if it's a $xx.xx form price, or a $xx.xx$xx.xx form price
@@ -376,16 +382,30 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
                     iter += 1
 
             #It's a recommended retail price item, is on sale, have to clean input a bit.
-            #Is of the format: RRP$xx.xx$xx.xx
+            #Is of the format: RRP$xx.xx$xx.xx(-xx%)
             else:
+                #print("The Price: "+thePrice)
                 count = 0 #How many $ have we seen? We're looking for 2, by the second we know to take the price following it
                 iter = 0 #For indexing the string
                 for character in thePrice:
                     if(character == "$"):
                         count+=1
                     if(count == 2): #We've seen the second price now, grab it
-                        discountPriceList.append(thePrice[iter:])
-                        break #We've added it, we can leave
+                        toClean = thePrice[iter:] #Gotta clean input a bit - has discount percentage listed
+                        count = iter #For grabbing characters until we see discount percentage listing start
+                        discount = ""
+
+                        # For each character in the input to clean, count them until we see the start of
+                        # the discount percentage listing (If applicable)
+                        for character in toClean:
+                            if (character != '('):
+                                count += 1
+                            else:
+                                discount = thePrice[count:] #Currently don't do anything with this but could store it
+                                #print("Discount percent is : " + discount)
+                                break
+                        discountPriceList.append(thePrice[iter:count])
+                        break  # We can move on to next one
                     iter +=1 #Increment iterator
 
         # Testing purpose prints
@@ -395,7 +415,18 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
         #print(len(priceList))
 
         # The following code section finds all the Product links for the current page (The URLS)
-        the_links = driver.find_elements(By.CLASS_NAME, "productLink_KM4PI")
+        #  This could potentially break if the classname for the <a hrefs changes - (It has before - have to maintain)
+        #  Would just have to update variable
+        #  Maybe find a way to generalize so name changes don't matter
+
+        the_links_original = driver.find_elements(By.CLASS_NAME, "productLink_KM4PI") #Small window view
+        the_links = driver.find_elements(By.CLASS_NAME, "productLink_P97ZK") #Newest class name? Big window view?
+
+        #This line should handle the issue where... class name in the page source differs depending on window size at time of scraping
+        #Note if NEITHER of these have elements it'll blow up anyway. As it should.
+        if(len(the_links_original) > len(the_links)):
+            the_links = the_links_original
+
         # For each href link, add its url to the list of urls for each product
         for link in the_links:
             #print(link.get_attribute("href"))
@@ -406,6 +437,7 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
         #print(len(urlList))
 
         # This section of code prints ALL the product names on the CURRENT page
+        # Prone to break if class name for product name holders changes - would just have to update variable
         product_name = driver.find_elements(By.CLASS_NAME, "productDescription_sryaw")
 
         #For each product add its name to list of product names
@@ -458,10 +490,10 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
         #Section for creating the data entry for each product (Search term, Product name, product price, productURL)
 
         #Testing purpose prints
-        #print(len(data))
-        #print("Product name list size: "+ str(len(nameList)))
-        #print("Discount prices list  size "+ str(len(discountPriceList)))
-        #print("Url list size: "+str(len(urlList)))
+        print(len(data))
+        print("Product name list size: "+ str(len(nameList)))
+        print("Discount prices list  size "+ str(len(discountPriceList)))
+        print("Url list size: "+str(len(urlList)))
         for eachProduct in range(0,len(data)):
             # Add search term used for this item lookup (Using list comprehension to get just the search term with split)
             data[eachProduct].append(searchList[search].split(default_url)[-1])
@@ -476,8 +508,6 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
     itemBudgets = storeBudgets(searchList, default_url)
     #print(itemBudgets) #test to see if dict is created
     return itemBudgets
-
-
 
 """
 Function: storeBudgets

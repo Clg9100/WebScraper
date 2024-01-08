@@ -3,7 +3,7 @@ import csv
 import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -288,6 +288,11 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
             except TimeoutException:
                 # Page can't expand that many times
                 break
+
+            except StaleElementReferenceException:
+                # Button doesn't exist (Exhausted (No more items) or never exists) - (Specifically for element to be clickable purposes)
+                break
+
         time.sleep(2) #Wait a bit for elements to load
 
         #Instantiate the lists to hold product data

@@ -1,11 +1,14 @@
 import time
 import csv
 import os
+
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, TimeoutException, StaleElementReferenceException
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
 
 
 """
@@ -273,7 +276,7 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
                         #Per press of the button
 
 
-        while expand_count <2: #Could do this infinitely, but UP TO 500 items is a good sample size( < 2 = 216 results or less)
+        while expand_count <2: #Could do this infinitely, but UP TO 216 items is a good sample size( < 2 = 216 results or less)
             try:
                 wait.until(EC.element_to_be_clickable((By.CLASS_NAME,"loadButton_wWQ3F"))) #Wait for button to be interactable
                 button = driver.find_element(By.CLASS_NAME, "loadButton_wWQ3F")
@@ -300,6 +303,45 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
         priceList = [] #Contains ALL prices (However only their original price, doesn't account for discount price
         urlList = [] #Contains Url of all products on current item being searched page.
         nameList = []#Contains name of every product found by current search term
+
+
+        if (imageFlag):  # User wants product images, setup list
+            imgsSrc = []
+            driver.execute_script("window.scrollTo(0, 0);") #Go to top of page
+            SCROLL_PAUSE_TIME = 2 #How long to wait between scrolls
+            while True:
+                previous_scrollY = driver.execute_script('return window.scrollY')
+                #driver.execute_script('window.scrollBy( 0, 400 )' ) #Alternative scroll, a bit slower but reliable
+                html = driver.find_element(By.TAG_NAME, 'html')
+                html.send_keys(Keys.PAGE_DOWN)
+                html.send_keys(Keys.PAGE_DOWN)
+                html.send_keys(Keys.PAGE_DOWN) #Faster scroll, inelegant but works (Could translate to value scroll like above)
+                time.sleep(SCROLL_PAUSE_TIME) #Give images a bit of time to load by waiting
+
+                # Calculate new scroll height and compare with last scroll height
+                if previous_scrollY == driver.execute_script('return window.scrollY'):
+                    break
+
+            missingCount = 0 #How many images did we miss (Testing purposes)
+            containers = driver.find_elements(By.CLASS_NAME, "productMediaContainer_kmkXR")
+            print(len(containers)) #Make sure we're getting all the containers
+            for container in containers:
+                try:
+                    image = container.find_element(By.TAG_NAME, 'img')
+                    print(image.get_attribute('src'))
+                    imgsSrc.append(image.get_attribute('src'))
+                except NoSuchElementException: #Ideally in this case it's a video rather than an image (otherwise we didn't give it time to load)
+                    missingCount += 1
+                    print("Whoops - Check if video")
+                    try:
+                        image = container.find_element(By.TAG_NAME,'video')
+                        print(image.get_attribute('poster'))
+                        imgsSrc.append(image.get_attribute('poster'))
+                    except NoSuchElementException: #It wasn't a video - OR we didn't give it enough time to load
+                        print("We're really broken")
+
+            print(missingCount)
+            print("Number of images: "+str(len(imgsSrc)))
 
         #This section prints the price of each entry on the page
 
@@ -453,38 +495,6 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
         # Testing purpose prints
         # print("nameList size: ")
         # print(len(nameList))
-        """
-        if(imageFlag):  # User wants product images, setup list
-            imgsSrc = []
-            containers = driver.find_elements(By.CLASS_NAME, "productMediaContainer_kmkXR")
-
-
-            SCROLL_PAUSE_TIME = 0.5
-            i = 0
-            last_height = driver.execute_script("return document.body.scrollHeight")
-            while True:
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(SCROLL_PAUSE_TIME)
-                new_height = driver.execute_script("return document.body.scrollHeight")
-                if new_height == last_height:
-                    break
-                last_height = new_height
-                i += 1
-                if i == 5:
-                    break
-
-            driver.implicitly_wait(10)
-
-            #print(len(containers))
-            for container in containers:
-                image = container.find_element(By.TAG_NAME, 'img')
-                print(image.get_attribute('src'))
-                imgsSrc.append(image.get_attribute('src'))
-
-            for image in imgsSrc:
-                print(image)
-                
-        """
 
         #Section for combining data for transfer to csv
         #Basically creating a list of lists, a list of products and all their data

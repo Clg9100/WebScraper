@@ -27,16 +27,19 @@ def createCSV(theData):
 """
 Function: createBudgetCSV
 Args: itemBudgets(dictionary of String to int mapping)
-Usage itemBudgets - dictionary of budgets imposed on the search items both supplied by the user.
+      imageFlag (boolean)
+       
+Usage: itemBudgets - dictionary of budgets imposed on the search items both supplied by the user.
+       imageFlag - flag imposed from user input determining if we include images or not
 
 Function is used to write to a csv file named 'budgetData.csv' which will only contain items checked against the full data list
 that fall within (rather under) the budget supplied by the user for each individual item
 
 Gripes: Similar gripes in terms of allowing user to name the budget csv file.
 """
-def createBudgetCSV(itemBudgets):
+def createBudgetCSV(itemBudgets,imageFlag):
     #budgetData = []
-    createBudgetCSVHeader()  # Create csv file for budgeted items with just the header
+    createBudgetCSVHeader(imageFlag)  # Create csv file for budgeted items with just the header
     #Reading full data, appending to bugetData (Because it already has the header, append to it)
     with open('fullData.csv', mode='r') as infile, open ('budgetData.csv', mode='a', newline='') as outfile:
         reader = csv.reader(infile)
@@ -46,7 +49,8 @@ def createBudgetCSV(itemBudgets):
             #Testing purpose print
             #print(lines)
 
-            price = lines[2]
+            price = lines[2] # File is of the form: Search Term,Product Name,Price,Link - Hence lines[2] should grab the price
+
             # Testing purpose prints, a bit important - don't want to remove them just yet.
             # print("Search item being checked: "+lines[0])
             # print("Price of said item: "+str(price[1:]))
@@ -68,24 +72,33 @@ def createBudgetCSV(itemBudgets):
 
 """
 Function: createCSVHeader
+Args: imageFlag (boolean)
+
+Usage: imageFlag - flag imposed from user input determining if we include images or not
 
 Function is used to create the initial fullData.csv file with the header needed for column distinction
 Will either replace the file if one of the same name is found, or make a new one for the first time
 """
-def createCSVHeader():
+def createCSVHeader(imageFlag):
 
     if os.path.exists("fullData.csv"):
         os.remove("fullData.csv")
         print("Old CSV file deleted")
         print("Writing new csv file: fullData.csv")
-        fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
+        if(imageFlag):#User wanted images
+            fields = ['Search Term', 'Product Name', 'Price', 'Link', 'ImageSrc']  # Header row for product data listings
+        else: #User didn't want images
+            fields = ['Search Term', 'Product Name', 'Price', 'Link']
         with open('fullData.csv', 'w',newline='') as file:  # 'w' mode is for writing to a file
             write = csv.writer(file)
             write.writerow(fields)
             file.close()#Close resource
     else:
         print("Writing new csv file: fullData.csv")
-        fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
+        if (imageFlag):  # User wanted images
+            fields = ['Search Term', 'Product Name', 'Price', 'Link', 'ImageSrc']  # Header row for product data listings
+        else:  #User didn't want images
+            fields = ['Search Term', 'Product Name', 'Price', 'Link']
         with open('fullData.csv', 'w') as file:  # 'w' mode is for writing to a file
             write = csv.writer(file)
             write.writerow(fields)
@@ -95,24 +108,35 @@ def createCSVHeader():
 
 """
 Function: createBudgetCSVHeader
+Args: imageFlag (boolean)
+
+Usage: imageFlag - flag imposed from user input determining if we include images or not
 
 Function is used to create the initial budgetData.csv file with the header needed for column distinction
 Will either replace the file if one of the same name is found, or make a new one for the first time
 """
-def createBudgetCSVHeader():
+def createBudgetCSVHeader(imageFlag):
 
     if os.path.exists("budgetData.csv"):
         os.remove("budgetData.csv")
         print("Old CSV file deleted")
         print("Writing new csv file: budgetData.csv")
-        fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
-        with open('budgetData.csv', 'w',newline='') as outfile:  # 'w' mode is for writing to a file
+        if (imageFlag):  # User wanted images
+            fields = ['Search Term', 'Product Name', 'Price', 'Link', 'ImageSrc']  # Header row for product data listings
+        else:
+            fields = ['Search Term', 'Product Name', 'Price', 'Link']
+        with open('budgetData.csv', 'w', newline='') as outfile:  # 'w' mode is for writing to a file
             write = csv.writer(outfile)
             write.writerow(fields)
             outfile.close()#Close resource
     else:
         print("Writing new csv file: budgetData.csv")
-        fields = ['Search Term', 'Product Name', 'Price', 'Link']  # Header row for product data listings
+
+        if (imageFlag):  # User wanted images
+            fields = ['Search Term', 'Product Name', 'Price', 'Link', 'ImageSrc']  # Header row for product data listings
+        else:
+            fields = ['Search Term', 'Product Name', 'Price', 'Link']
+
         with open('budgetData.csv', 'w') as outfile:  # 'w' mode is for writing to a file
             write = csv.writer(outfile)
             write.writerow(fields)

@@ -103,11 +103,11 @@ def main():
         else:
             print("Invalid input, try again please")
 
-    CSVHandler.createCSVHeader()  # Create csv file with just this header
+    CSVHandler.createCSVHeader(imageFlag)  # Create csv file with just this header
     # Get data from site and create csv file from that data
     # returns a dict of budgets to form budget csv
     budgets = gatherAsos(filter, search_items, imageFlag)
-    CSVHandler.createBudgetCSV(budgets)  # Create the csv file for products that fit within budget
+    CSVHandler.createBudgetCSV(budgets, imageFlag)  # Create the csv file for products that fit within budget
     print("All items that fit your initial queries on your chosen filter can be found in the file: fullData.csv")
     print("All items that are under your entered per item budget can be found in the file: budgetData.csv")
 
@@ -187,7 +187,7 @@ Usage: filter - the user supplied filter for scraping the items from the website
        
 The big workhorse the main focus of this function is to boot up the webdriver for scraping the ASOS website,
 with adherence to the search items supplied by the user and the filter they've set (or have not set, for general searches)
-Forms a list of data from the current page being scraped - (Search term used to find product, product name, product price, product url link)
+Forms a list of data from the current page being scraped - (Search term used to find product, product name, product price, product url link, imgSrc (If applicable))
 This data is then fed into a created csv file which will be used to filter items from the full list of items down to a list of items for 
 each search term (Ex: shirts, hats, pants, etc) that fit under the budget supplied for the user for each item)       
 """
@@ -303,10 +303,9 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
         priceList = [] #Contains ALL prices (However only their original price, doesn't account for discount price
         urlList = [] #Contains Url of all products on current item being searched page.
         nameList = []#Contains name of every product found by current search term
-
+        imgsSrc = [] #Contains imgSrc of every product found by current search (If the user wanted images)
 
         if (imageFlag):  # User wants product images, setup list
-            imgsSrc = []
             driver.execute_script("window.scrollTo(0, 0);") #Go to top of page
             SCROLL_PAUSE_TIME = 2 #How long to wait between scrolls
             while True:
@@ -328,20 +327,20 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
             for container in containers:
                 try:
                     image = container.find_element(By.TAG_NAME, 'img')
-                    print(image.get_attribute('src'))
+                    #print(image.get_attribute('src')) TPP
                     imgsSrc.append(image.get_attribute('src'))
                 except NoSuchElementException: #Ideally in this case it's a video rather than an image (otherwise we didn't give it time to load)
                     missingCount += 1
                     print("Whoops - Check if video")
                     try:
                         image = container.find_element(By.TAG_NAME,'video')
-                        print(image.get_attribute('poster'))
+                        #print(image.get_attribute('poster')) TPP
                         imgsSrc.append(image.get_attribute('poster'))
                     except NoSuchElementException: #It wasn't a video - OR we didn't give it enough time to load
                         print("We're really broken")
 
-            print(missingCount)
-            print("Number of images: "+str(len(imgsSrc)))
+            #print(missingCount) TPP
+            #print("Number of images: "+str(len(imgsSrc))) TPP
 
         #This section prints the price of each entry on the page
 
@@ -516,6 +515,8 @@ def gatherAsos(filter,items,imageFlag):##Seemingly a GOOD website thus far
             #data[eachProduct].append(priceList[eachProduct]) #Add price of product (Old way, before discount validation)
             data[eachProduct].append(discountPriceList[eachProduct])# Add price of product (Latest way, actually gets discounts)
             data[eachProduct].append(urlList[eachProduct]) # Add url of product
+            if imageFlag:
+                data[eachProduct].append(imgsSrc[eachProduct]) #Add imageSrc of product (if user wanted images)
             #print(data[eachProduct]) #to print data
         CSVHandler.createCSV(data) #Write to the csv file the list of data for csv file creation
 

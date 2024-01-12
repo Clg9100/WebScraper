@@ -64,14 +64,14 @@ def main():
     ##If user enters search terms such as "Shirt shirt shirt pants
     #Without commas this will count as one search term
     while(inputting):
-        item = input("Enter the items you want to search for as a comma seperated list -"
+        item = input("Enter the items you want to search for as a comma separated list -"
                      "(EX: Shirts, pants, hats, dresses: ")
         item = item.lower()
         terms = len(item.split(","))
         onlyStrings = True #Flag to make sure the user has ONLY entered text, not numbers in the input
 
         for i in item.split(","):
-            if(i.strip(" ").isdigit()): #Check to make sure user has entered valid input
+            if(i.strip(" ").isdigit() or ( i.strip(" ").isalpha() == False)): #Check to make sure user has entered valid input
                 onlyStrings = False #Found an int, invalid input
                 break #No need to add search items, invalid input
             search_items.add(i)
